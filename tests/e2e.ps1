@@ -138,8 +138,11 @@ try {
     & reg.exe save HKLM\SYSTEM "$sysSrc\System32\config\SYSTEM" /y | Out-Null
     Assert ($LASTEXITCODE -eq 0) 'SYSTEM-Hive exportiert'
     Copy-Item -LiteralPath "$env:SystemRoot\Boot" -Destination "$sysSrc\Boot" -Recurse -Force
-    foreach ($f in 'winload.efi', 'winload.exe', 'ntoskrnl.exe', 'hal.dll') {
-        if (Test-Path "$env:SystemRoot\System32\$f") { Copy-Item "$env:SystemRoot\System32\$f" "$sysSrc\System32\$f" -Force }
+    # bcdboot braucht neben den Bootdateien auch die Boot-Zeichenfolgen (bootstr.dll + MUI) des Zielsystems
+    New-Item -ItemType Directory -Path "$sysSrc\System32\en-US" -Force | Out-Null
+    foreach ($f in 'winload.efi', 'winload.exe', 'winresume.efi', 'winresume.exe', 'ntoskrnl.exe', 'hal.dll', 'bootstr.dll', 'bcd.dll',
+        'en-US\bootstr.dll.mui', 'en-US\winload.efi.mui', 'en-US\winload.exe.mui', 'en-US\winresume.efi.mui', 'en-US\winresume.exe.mui', 'en-US\bcd.dll.mui') {
+        if (Test-Path "$env:SystemRoot\System32\$f") { Copy-Item "$env:SystemRoot\System32\$f" "$sysSrc\System32\$f" -Force } else { Write-Host "  (nicht vorhanden: $f)" }
     }
     $sj = New-WsbJob; $sj.name = 'System'; $sj.volumes = @('V:'); $sj.target.path = $target; $sj.keep = 5
     $sr = Start-WsbBackup -Job $sj
