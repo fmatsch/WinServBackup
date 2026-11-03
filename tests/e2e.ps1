@@ -138,6 +138,7 @@ try {
     & reg.exe save HKLM\SYSTEM "$sysSrc\System32\config\SYSTEM" /y | Out-Null
     Assert ($LASTEXITCODE -eq 0) 'SYSTEM-Hive exportiert'
     Copy-Item -LiteralPath "$env:SystemRoot\Boot" -Destination "$sysSrc\Boot" -Recurse -Force
+    Copy-Item -LiteralPath "$env:SystemRoot\System32\config\BCD-Template" -Destination "$sysSrc\System32\config\BCD-Template" -Force
     # bcdboot braucht neben den Bootdateien auch die Boot-Zeichenfolgen (bootstr.dll + MUI) des Zielsystems
     New-Item -ItemType Directory -Path "$sysSrc\System32\en-US" -Force | Out-Null
     foreach ($f in 'winload.efi', 'winload.exe', 'winresume.efi', 'winresume.exe', 'ntoskrnl.exe', 'hal.dll', 'bootstr.dll', 'bcd.dll',
