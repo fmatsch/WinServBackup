@@ -569,7 +569,7 @@ function Start-WsbBackup {
         # Volumes bestimmen
         $all = @(Get-WsbVolume | Where-Object { $_.Supported })
         $want = @($Job.volumes | Where-Object { $_ })
-        $vols = if ($want.Count -gt 0) { @($all | Where-Object { $want -contains $_.Drive }) } else { $all }
+        $vols = @(if ($want.Count -gt 0) { $all | Where-Object { $want -contains $_.Drive } } else { $all })
         if ($vols.Count -eq 0) { throw 'Keine passenden NTFS-Laufwerke zum Sichern gefunden.' }
         if ($want.Count -gt 0 -and $vols.Count -ne $want.Count) {
             $missing = $want | Where-Object { $_ -notin $vols.Drive }
