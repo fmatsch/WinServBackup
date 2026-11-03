@@ -1,0 +1,5 @@
+*.wim
+*.iso
+*.vhdx
+.DS_Store
+Thumbs.db

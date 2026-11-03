@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Windows PowerShell 5.1
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Statische Prüfung (Syntax, BOM, XAML)
+        shell: powershell
+        run: ./tests/static.ps1
+
+      - name: Oberfläche laden (Selbsttest)
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File src/Gui/App.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File recovery/Restore/Restore.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: End-to-End (VSS-Backup, Aufbewahrung, Zeitplan, Restore)
+        shell: powershell
+        run: ./tests/e2e.ps1
