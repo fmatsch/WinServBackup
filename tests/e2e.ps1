@@ -124,7 +124,7 @@ try {
     $bad = 0
     foreach ($k in $srcHash.Keys) {
         $p = "${tmpLetter}:\$k"
-        if (-not (Test-Path -LiteralPath $p -Force)) { Write-Host "  fehlt: $k" -ForegroundColor Red; $bad++; continue }
+        if (-not (Test-Path -LiteralPath $p)) { Write-Host "  fehlt: $k" -ForegroundColor Red; $bad++; continue }
         if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne $srcHash[$k]) { Write-Host "  Hash: $k" -ForegroundColor Red; $bad++ }
     }
     Assert ($bad -eq 0) "alle $($srcHash.Count) Dateien identisch wiederhergestellt"
