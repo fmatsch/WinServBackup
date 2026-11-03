@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $failed = 0
 
-foreach ($f in Get-ChildItem -LiteralPath $root -Recurse -File -Include *.ps1, *.psm1 | Where-Object { $_.FullName -notmatch '\\\.git\\' }) {
+foreach ($f in Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object { $_.Extension -in '.ps1', '.psm1' -and $_.FullName -notmatch '\\\.git\\' }) {
     $bytes = [IO.File]::ReadAllBytes($f.FullName)
     $rel = $f.FullName.Substring($root.Length + 1)
     $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
@@ -16,7 +16,7 @@ foreach ($f in Get-ChildItem -LiteralPath $root -Recurse -File -Include *.ps1, *
     } else { Write-Host "ok  $rel" }
 }
 
-foreach ($f in Get-ChildItem -LiteralPath $root -Recurse -File -Include *.xaml | Where-Object { $_.FullName -notmatch '\\\.git\\' }) {
+foreach ($f in Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object { $_.Extension -eq '.xaml' -and $_.FullName -notmatch '\\\.git\\' }) {
     $rel = $f.FullName.Substring($root.Length + 1)
     try {
         $styles = [IO.File]::ReadAllText((Join-Path $root 'src\Gui\Styles.inc.xml'), [Text.Encoding]::UTF8)

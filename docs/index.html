@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WinServBackup – Backup für Windows Server</title>
+<meta name="description" content="Geplante, wiederkehrende Komplett-Backups für Windows Server ab 2016 in eine einzige Datei – mit Boot-Medium, von dem sich das Backup wieder einspielen lässt. Schlichte Oberfläche, VSS-Snapshots, Aufbewahrung nach Anzahl.">
+<meta property="og:title" content="WinServBackup">
+<meta property="og:description" content="Windows Server komplett sichern – in eine Datei, mit Boot-Medium zur Wiederherstellung.">
+<meta property="og:image" content="https://fmatsch.ist/WinServBackup/icon.png">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  :root {
+    --bg: #f6f5f1; --surface: #ffffff; --text: #1c1b19; --muted: #6b6860;
+    --line: #e4e1d9; --accent: #2563eb; --chip: #efede6;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -12px rgba(0,0,0,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141413; --surface: #1d1c1a; --text: #f1efe9; --muted: #a19d93;
+      --line: #2e2c29; --accent: #60a5fa; --chip: #272522;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141413; --surface: #1d1c1a; --text: #f1efe9; --muted: #a19d93;
+    --line: #2e2c29; --accent: #60a5fa; --chip: #272522;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  .crumb { padding: 20px 0 0; font-size: 14px; color: var(--muted); }
+  .crumb a { text-decoration: none; }
+  .crumb a:hover { color: var(--accent); }
+
+  .hero { display: flex; gap: 28px; align-items: center; padding: 48px 0 32px; flex-wrap: wrap; }
+  .hero img.icon { width: 112px; height: 112px; border-radius: 26px; box-shadow: var(--shadow); flex: none; }
+  .hero h1 { font-size: clamp(32px, 6vw, 52px); letter-spacing: -0.03em; line-height: 1.05; margin: 0 0 12px; }
+  .hero p { margin: 0; color: var(--muted); font-size: 18px; max-width: 56ch; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 24px 0 0; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+    padding: 11px 20px; border-radius: 12px; font-weight: 600; font-size: 16px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .dl-meta { font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 1.2em; }
+
+  h2 {
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 56px 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  .steps { counter-reset: s; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; padding: 0; margin: 0; list-style: none; }
+  .steps li {
+    counter-increment: s; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); font-size: 15px;
+  }
+  .steps li::before {
+    content: counter(s); display: grid; place-items: center; width: 26px; height: 26px;
+    border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 13px; margin-bottom: 10px;
+  }
+  .steps b { display: block; margin-bottom: 2px; }
+  .steps span { color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 6px; font-size: 16px; letter-spacing: -0.01em; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .note { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; padding: 16px 20px; box-shadow: var(--shadow); }
+  .note p { margin: 0 0 10px; } .note p:last-child { margin: 0; }
+  ul.plain { margin: 0; padding-left: 20px; color: var(--muted); }
+  ul.plain li { margin: 6px 0; } ul.plain b { color: var(--text); }
+  code { background: var(--chip); padding: 1px 6px; border-radius: 6px; font-size: .92em; }
+  pre {
+    margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; overflow-x: auto; box-shadow: var(--shadow); font-size: 14px; line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; }
+
+  footer {
+    border-top: 1px solid var(--line); margin-top: 64px; padding: 28px 0 48px;
+    color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between;
+  }
+  footer a { color: var(--muted); } footer a:hover { color: var(--accent); }
+  @media (max-width: 480px) { .hero { padding-top: 32px; } .hero img.icon { width: 84px; height: 84px; border-radius: 20px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb"><a href="https://fmatsch.ist/">← fmatsch.ist</a></div>
+
+  <header class="hero">
+    <img class="icon" src="icon.png" alt="" width="112" height="112">
+    <div>
+      <h1>WinServBackup</h1>
+      <p>Komplett-Backups für Windows Server ab 2016: geplant, wiederkehrend und in einer einzigen Datei. Zum Zurückspielen startet man von einem Boot-Medium, das den Assistenten gleich mitbringt.</p>
+      <div class="actions">
+        <a class="btn primary" id="dl" href="https://github.com/fmatsch/WinServBackup/releases/latest">⬇ Herunterladen</a>
+        <a class="btn" href="https://github.com/fmatsch/WinServBackup">Quellcode auf GitHub</a>
+      </div>
+      <div class="dl-meta" id="dl-meta">Windows Server 2016 und neuer · PowerShell 5.1 · kostenlos, MIT-Lizenz</div>
+    </div>
+  </header>
+
+  <h2>So läuft es ab</h2>
+  <ol class="steps">
+    <li><b>Auftrag anlegen</b><span>Ziel (Ordner oder Netzwerkfreigabe), Zeitplan, Aufbewahrung. Mit „Ziel testen“ prüfen.</span></li>
+    <li><b>Automatisch sichern</b><span>VSS-Snapshot, dann ein Abbild je Laufwerk in einer <code>.wim</code>-Datei. Der Server läuft weiter.</span></li>
+    <li><b>Boot-Medium bauen</b><span>Einmalig als ISO oder USB-Stick, mit den Treibern des Servers.</span></li>
+    <li><b>Wiederherstellen</b><span>Vom Medium starten, Backup und Zieldatenträger wählen, bestätigen.</span></li>
+  </ol>
+
+  <h2>Funktionen</h2>
+  <div class="grid">
+    <div class="card"><h3>Eine Datei pro Backup</h3><p>Alle Laufwerke, das Datenträger-Layout und die Angaben zu Server und Startmodus stecken in einer Datei. Kopieren, archivieren, ablegen – mehr braucht es nicht.</p></div>
+    <div class="card"><h3>Schlichte Oberfläche</h3><p>Übersicht mit Status, nächstem Lauf und freiem Platz. Aufträge anlegen in einem Dialog statt in zehn Menüs. Läuft auch per PowerShell auf Server Core.</p></div>
+    <div class="card"><h3>Konsistent im laufenden Betrieb</h3><p>Ein gemeinsamer VSS-Snapshot aller Laufwerke, mit VSS-Writern. Nicht genügend Writer? Dann weicht das Programm auf absturzkonsistent aus und schreibt es ins Protokoll.</p></div>
+    <div class="card"><h3>Sicher aufräumen</h3><p>Ältere Sicherungen werden erst gelöscht, wenn die neue fertig und geprüft ist. Eine abgebrochene Sicherung hinterlässt keine halbe Datei.</p></div>
+    <div class="card"><h3>Zeitplan im Windows-Aufgabenplaner</h3><p>Täglich, wöchentlich, monatlich, alle paar Stunden oder manuell. Verpasste Läufe werden nachgeholt. Optional E-Mail bei Fehlern.</p></div>
+    <div class="card"><h3>Boot-Medium mit Assistent</h3><p>WinPE mit einem Wiederherstellungs-Assistenten in vier Schritten. Findet Backups auf allen Laufwerken, verbindet Netzwerkfreigaben und warnt vor dem Löschen deutlich.</p></div>
+    <div class="card"><h3>UEFI und BIOS</h3><p>Partitionen, EFI-Systempartition bzw. Reserved-Partition, BCD und Laufwerksbuchstaben entstehen passend zum Zielserver. Zusätzliche Treiber lassen sich einbinden.</p></div>
+    <div class="card"><h3>Netzwerkziele</h3><p>SMB-Freigaben mit Anmeldung; das Kennwort wird mit dem Server verschlüsselt gespeichert (DPAPI, Maschinenschlüssel).</p></div>
+    <div class="card"><h3>Offen und prüfbar</h3><p>Reines PowerShell und XAML, MIT-lizenziert. Bei jedem Commit läuft auf Windows ein Test mit echtem VSS-Backup und Restore auf einen leeren Datenträger.</p></div>
+  </div>
+
+  <h2>Installation</h2>
+  <pre><code># als Administrator im entpackten Ordner
+powershell -ExecutionPolicy Bypass -File .\Install.ps1</code></pre>
+  <p style="color:var(--muted)">Danach im Startmenü <b>WinServBackup</b> öffnen. Für das Boot-Medium einmalig das kostenlose <a href="https://learn.microsoft.com/windows-hardware/get-started/adk-install">Windows ADK mit WinPE-Add-on</a> installieren.</p>
+
+  <h2>Gut zu wissen</h2>
+  <div class="note">
+    <p><b>Probiere die Wiederherstellung einmal auf einer VM aus, bevor du dich darauf verlässt.</b> Die Tests auf Windows decken Sicherung, Aufbewahrung, Zeitplan und das Zurückspielen auf einen leeren Datenträger samt Startdateien und Laufwerksbuchstaben ab. Einen vollständigen Start eines wiederhergestellten Servers und das Erzeugen des Boot-Mediums mit dem ADK prüfen sie nicht.</p>
+  </div>
+  <ul class="plain" style="margin-top:16px">
+    <li><b>Löscht Daten:</b> Die Wiederherstellung überschreibt die gewählten Zieldatenträger komplett und verlangt dafür eine ausdrückliche Bestätigung.</li>
+    <li><b>NTFS:</b> ReFS, Dynamische Datenträger, Storage Spaces und Software-RAID werden nicht abgebildet. Hardware-RAID erscheint als normaler Datenträger und funktioniert.</li>
+    <li><b>Vollbackups:</b> Jede Sicherung ist komplett (komprimiert). Es gibt kein inkrementelles Backup und keine Verschlüsselung der Datei.</li>
+    <li><b>Zieldatenträger:</b> Kleiner als das Original darf er nicht sein, größer schon (das letzte Laufwerk wächst mit).</li>
+    <li><b>Nicht signiert:</b> Die PowerShell-Skripte sind nicht signiert. Die Installation läuft mit <code>-ExecutionPolicy Bypass</code>; den Quellcode kannst du vorher ansehen.</li>
+  </ul>
+
+  <footer>
+    <span>© <span id="year">2026</span> Florian Matscheko · MIT-Lizenz</span>
+    <span><a href="https://github.com/fmatsch/WinServBackup">GitHub</a> · <a href="https://fmatsch.ist/">fmatsch.ist</a></span>
+  </footer>
+</div>
+<script>
+  document.getElementById("year").textContent = new Date().getFullYear();
+
+  // Direktlink zum neuesten Release; ohne Netz oder ohne Release bleibt der statische Link.
+  fetch("https://api.github.com/repos/fmatsch/WinServBackup/releases/latest")
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(rel => {
+      const a = (rel.assets || []).find(x => x.name === "WinServBackup.zip");
+      if (!a) return;
+      const dl = document.getElementById("dl");
+      dl.href = a.browser_download_url;
+      document.getElementById("dl-meta").textContent =
+        `${rel.tag_name} · ${(a.size / 1048576).toFixed(1)} MB · Windows Server 2016 und neuer · kostenlos, MIT-Lizenz`;
+    })
+    .catch(() => {});
+</script>
+</body>
+</html>
