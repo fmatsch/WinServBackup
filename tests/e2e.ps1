@@ -50,7 +50,10 @@ try {
     [IO.File]::WriteAllBytes('V:\leer.bin', @())
     $hidden = Get-Item 'V:\Daten\hallo.txt'; $hidden.Attributes = 'Hidden'
     $srcHash = @{}
-    Get-ChildItem 'V:\' -Recurse -File -Force | Where-Object { $_.FullName -notmatch 'System Volume Information' } | ForEach-Object { $srcHash[$_.FullName.Substring(3)] = (Get-FileHash $_.FullName -Algorithm SHA256).Hash }
+    $all = foreach ($i in Get-ChildItem 'V:\' -Force | Where-Object { $_.Name -ne 'System Volume Information' }) {
+        if ($i.PSIsContainer) { Get-ChildItem -LiteralPath $i.FullName -Recurse -File -Force } else { $i }
+    }
+    foreach ($f in $all) { $srcHash[$f.FullName.Substring(3)] = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash }
     Assert ($srcHash.Count -ge 4) "Testdateien angelegt ($($srcHash.Count))"
 
     Section 'Volumes erkennen'
