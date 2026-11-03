@@ -120,7 +120,7 @@ try {
     $newest = (Get-WsbBackupFile -Folder $target | Select-Object -First 1).FullName
     $res = Restore-WsbBackup -BackupFile $newest -DiskMap @{ $srcDisk = [int]$dstDisk } -Firmware UEFI -KeepLetters $true
     $tmpLetter = $res.Letters["${srcDisk}:V"]
-    Assert ($tmpLetter) "Zielvolume hat Laufwerk $tmpLetter"
+    Assert ([bool]$tmpLetter) "Zielvolume hat Laufwerk $tmpLetter"
     $bad = 0
     foreach ($k in $srcHash.Keys) {
         $p = "${tmpLetter}:\$k"
@@ -151,7 +151,7 @@ try {
     $vhds += ($dst2 = New-TestVhd -Name 'dst2' -SizeMB 1200 -Letter $null -Label '')
     $dstDisk2 = (Get-DiskImage -ImagePath $dst2 | Get-Disk).Number
     $res2 = Restore-WsbBackup -BackupFile $sr.File -DiskMap @{ $srcDisk = [int]$dstDisk2 } -Firmware UEFI -KeepLetters $true
-    Assert ($res2.BootLetter) "EFI-Partition hat Laufwerk $($res2.BootLetter)"
+    Assert ([bool]$res2.BootLetter) "EFI-Partition hat Laufwerk $($res2.BootLetter)"
     Assert (Test-Path "$($res2.BootLetter):\EFI\Microsoft\Boot\BCD") 'BCD-Speicher wurde angelegt'
     Assert (Test-Path "$($res2.BootLetter):\EFI\Boot\bootx64.efi") 'EFI-Fallback-Starter vorhanden'
     $part = Get-Partition -DiskNumber $dstDisk2 | Where-Object { $_.Type -eq 'System' -or $_.GptType -eq '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}' }
