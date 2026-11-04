@@ -162,7 +162,8 @@ try {
     Assert ($null -ne $part) 'Datentraeger ist GPT mit EFI-Systempartition'
     # MountedDevices im wiederhergestellten System pruefen
     $osLetter = $res2.Letters["${srcDisk}:V"]
-    & reg.exe load HKLM\WSB_CHECK "${osLetter}:\Windows\System32\config\SYSTEM" | Out-Null
+    $ld = & reg.exe load HKLM\WSB_CHECK "${osLetter}:\Windows\System32\config\SYSTEM" 2>&1 | Out-String
+    Assert ($LASTEXITCODE -eq 0) "Hive des wiederhergestellten Systems ladbar $ld"
     try {
         $en = @($res2.DriversEnabled)
         Assert ($en.Count -gt 0) "Speichertreiber wurden umgestellt ($($en -join ', '))"
@@ -176,7 +177,7 @@ try {
         Assert ($notBoot.Count -eq 0) 'alle umgestellten Treiber stehen im Hive auf Start=0'
         $v = (Get-ItemProperty 'HKLM:\WSB_CHECK\MountedDevices' -ErrorAction Stop).'\DosDevices\V:'
         Assert ($v -and $v.Length -eq 24 -and [Text.Encoding]::ASCII.GetString($v, 0, 8) -eq 'DMIO:ID:') 'MountedDevices: V: zeigt auf die neue GPT-Partition'
-    } finally { [gc]::Collect(); [gc]::WaitForPendingFinalizers(); & reg.exe unload HKLM\WSB_CHECK | Out-Null }
+    } finally { Dismount-WsbHive 'HKLM\WSB_CHECK' }
 
     Write-Host "`nALLE TESTS BESTANDEN" -ForegroundColor Green
 } catch {

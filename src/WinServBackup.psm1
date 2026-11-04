@@ -687,6 +687,19 @@ function Invoke-WsbDiskpart {
     if ($code -ne 0) { throw "diskpart ist mit Code $code fehlgeschlagen." }
 }
 
+function Dismount-WsbHive {
+    # Entlaedt einen Registry-Hive; offene .NET-Handles werden freigegeben, bei Bedarf wird wiederholt.
+    param([string]$Name)
+    $o = ''
+    foreach ($i in 1..10) {
+        [gc]::Collect(); [gc]::WaitForPendingFinalizers()
+        $o = & reg.exe unload $Name 2>&1 | Out-String
+        if ($LASTEXITCODE -eq 0) { return }
+        Start-Sleep -Milliseconds 500
+    }
+    Write-WsbLog "Registry-Hive $Name ließ sich nicht entladen: $($o.Trim())" 'WARN'
+}
+
 function Set-WsbMountedDevices {
     # Schreibt die Laufwerksbuchstaben in die (offline eingehaengte) SYSTEM-Registry der wiederhergestellten Installation.
     param([string]$WindowsRoot, [object[]]$Entries)
@@ -702,8 +715,7 @@ function Set-WsbMountedDevices {
         }
     } finally {
         $key = $null
-        [gc]::Collect(); [gc]::WaitForPendingFinalizers()
-        & reg.exe unload HKLM\WSB_TARGET | Out-Null
+        Dismount-WsbHive 'HKLM\WSB_TARGET'
     }
 }
 
@@ -733,8 +745,7 @@ function Enable-WsbBootDrivers {
             }
         }
     } finally {
-        [gc]::Collect(); [gc]::WaitForPendingFinalizers()
-        & reg.exe unload HKLM\WSB_TARGET | Out-Null
+        Dismount-WsbHive 'HKLM\WSB_TARGET'
     }
     Write-WsbLog ('Boot-Treiber aktiviert: ' + $(if ($changed.Count) { $changed -join ', ' } else { '(keine Änderung nötig)' }))
     @($changed)
