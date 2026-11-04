@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WinServBackup – Backup für Windows Server</title>
-<meta name="description" content="Geplante, wiederkehrende Komplett-Backups für Windows Server ab 2016 in eine einzige Datei – mit Boot-Medium, von dem sich das Backup wieder einspielen lässt. Schlichte Oberfläche, VSS-Snapshots, Aufbewahrung nach Anzahl.">
+<title>WinServBackup – Backup für Windows Server, 10 und 11</title>
+<meta name="description" content="Geplante, wiederkehrende Komplett-Backups für Windows Server ab 2016 sowie Windows 10 und 11 in eine einzige Datei – mit Boot-Medium, von dem sich das Backup wieder einspielen lässt. Schlichte Oberfläche, VSS-Snapshots, Aufbewahrung nach Anzahl.">
 <meta property="og:title" content="WinServBackup">
 <meta property="og:description" content="Windows Server komplett sichern – in eine Datei, mit Boot-Medium zur Wiederherstellung.">
 <meta property="og:image" content="https://fmatsch.ist/WinServBackup/icon.png">
@@ -106,12 +106,12 @@
     <img class="icon" src="icon.png" alt="" width="112" height="112">
     <div>
       <h1>WinServBackup</h1>
-      <p>Komplett-Backups für Windows Server ab 2016: geplant, wiederkehrend und in einer einzigen Datei. Zum Zurückspielen startet man von einem Boot-Medium, das den Assistenten gleich mitbringt.</p>
+      <p>Komplett-Backups für Windows Server ab 2016 sowie Windows 10 und 11: geplant, wiederkehrend und in einer einzigen Datei. Zum Zurückspielen startet man von einem Boot-Medium, das den Assistenten gleich mitbringt.</p>
       <div class="actions">
         <a class="btn primary" id="dl" href="https://github.com/fmatsch/WinServBackup/releases/latest">⬇ Setup herunterladen</a>
         <a class="btn" href="https://github.com/fmatsch/WinServBackup">Quellcode auf GitHub</a>
       </div>
-      <div class="dl-meta" id="dl-meta">Windows Server 2016 und neuer · PowerShell 5.1 · kostenlos, MIT-Lizenz</div>
+      <div class="dl-meta" id="dl-meta">Windows Server 2016+ · Windows 10/11 · kostenlos, MIT-Lizenz</div>
     </div>
   </header>
 
@@ -127,10 +127,11 @@
   <div class="grid">
     <div class="card"><h3>Eine Datei pro Backup</h3><p>Alle Laufwerke, das Datenträger-Layout und die Angaben zu Server und Startmodus stecken in einer Datei. Kopieren, archivieren, ablegen – mehr braucht es nicht.</p></div>
     <div class="card"><h3>Schlichte Oberfläche</h3><p>Übersicht mit Status, nächstem Lauf und freiem Platz. Aufträge anlegen in einem Dialog statt in zehn Menüs. Läuft auch per PowerShell auf Server Core.</p></div>
-    <div class="card"><h3>Konsistent im laufenden Betrieb</h3><p>Ein gemeinsamer VSS-Snapshot aller Laufwerke, mit VSS-Writern. Nicht genügend Writer? Dann weicht das Programm auf absturzkonsistent aus und schreibt es ins Protokoll.</p></div>
+    <div class="card"><h3>Konsistent im laufenden Betrieb</h3><p>Unter Windows Server ein gemeinsamer VSS-Snapshot aller Laufwerke mit VSS-Writern. Auf Windows 10/11 ein WMI-Snapshot je Laufwerk (absturzkonsistent). Das Protokoll sagt, was verwendet wurde.</p></div>
     <div class="card"><h3>Sicher aufräumen</h3><p>Ältere Sicherungen werden erst gelöscht, wenn die neue fertig und geprüft ist. Eine abgebrochene Sicherung hinterlässt keine halbe Datei.</p></div>
     <div class="card"><h3>Zeitplan im Windows-Aufgabenplaner</h3><p>Täglich, wöchentlich, monatlich, alle paar Stunden oder manuell. Verpasste Läufe werden nachgeholt. Optional E-Mail bei Fehlern.</p></div>
     <div class="card"><h3>Boot-Medium mit Assistent</h3><p>WinPE mit einem Wiederherstellungs-Assistenten in vier Schritten. Findet Backups auf allen Laufwerken, verbindet Netzwerkfreigaben und warnt vor dem Löschen deutlich.</p></div>
+    <div class="card"><h3>Server und Arbeitsplätze</h3><p>Windows Server ab 2016 sowie Windows 10 und 11, auch ARM64. Dieselbe Oberfläche, derselbe Ablauf, dasselbe Boot-Medium.</p></div>
     <div class="card"><h3>Hardwareunabhängig zurückspielen</h3><p>Auf neuer Hardware startet der Server wieder: Die Speichertreiber (AHCI, NVMe, SAS/RAID, Hyper-V) werden vor dem ersten Start aktiviert, eigene Treiber lassen sich einspielen, UEFI und BIOS wählt der Assistent passend zum Ziel.</p></div>
     <div class="card"><h3>UEFI und BIOS</h3><p>Partitionen, EFI-Systempartition bzw. Reserved-Partition, BCD und Laufwerksbuchstaben entstehen passend zum Zielserver. Zusätzliche Treiber lassen sich einbinden.</p></div>
     <div class="card"><h3>Netzwerkziele</h3><p>SMB-Freigaben mit Anmeldung; das Kennwort wird mit dem Server verschlüsselt gespeichert (DPAPI, Maschinenschlüssel).</p></div>
@@ -147,6 +148,7 @@
   </div>
   <ul class="plain" style="margin-top:16px">
     <li><b>Löscht Daten:</b> Die Wiederherstellung überschreibt die gewählten Zieldatenträger komplett und verlangt dafür eine ausdrückliche Bestätigung.</li>
+    <li><b>Windows 10/11:</b> Der Snapshot ist absturzkonsistent. Die Sicherung ist unverschlüsselt, auch wenn BitLocker aktiv ist. Nach dem Restore <code>reagentc /enable</code> ausführen. Getestet auf Windows Server und Windows 11 ARM64.</li>
     <li><b>NTFS:</b> ReFS, Dynamische Datenträger, Storage Spaces und Software-RAID werden nicht abgebildet. Hardware-RAID erscheint als normaler Datenträger und funktioniert.</li>
     <li><b>Vollbackups:</b> Jede Sicherung ist komplett (komprimiert). Es gibt kein inkrementelles Backup und keine Verschlüsselung der Datei.</li>
     <li><b>Andere Hardware:</b> Speichertreiber werden automatisch aktiviert; Netzwerkkarten bekommen neue Einstellungen (DHCP), und die Windows-Aktivierung kann neu nötig sein. Treiber für exotische RAID-Controller bringst du als Ordner mit.</li>
@@ -171,7 +173,7 @@
       const dl = document.getElementById("dl");
       dl.href = a.browser_download_url;
       document.getElementById("dl-meta").textContent =
-        `${rel.tag_name} · ${(a.size / 1048576).toFixed(1)} MB · Windows Server 2016 und neuer · kostenlos, MIT-Lizenz`;
+        `${rel.tag_name} · ${(a.size / 1048576).toFixed(1)} MB · Windows Server 2016+, Windows 10/11 · kostenlos, MIT-Lizenz`;
     })
     .catch(() => {});
 </script>

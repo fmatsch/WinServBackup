@@ -1,6 +1,6 @@
 # WinServBackup
 
-Einfache, geplante Komplett-Backups für **Windows Server 2016 und neuer**. Das ganze System landet in **einer einzigen Datei** (`.wim`). Zum Zurückspielen startet man den Server von einem **Boot-Medium** (WinPE), das einen Assistenten mitbringt.
+Einfache, geplante Komplett-Backups für **Windows Server 2016 und neuer** sowie **Windows 10 und 11**. Das ganze System landet in **einer einzigen Datei** (`.wim`). Zum Zurückspielen startet man den Server von einem **Boot-Medium** (WinPE), das einen Assistenten mitbringt.
 
 Seite: <https://fmatsch.ist/WinServBackup/>
 
@@ -8,7 +8,7 @@ Seite: <https://fmatsch.ist/WinServBackup/>
 
 | Schritt | Was passiert |
 |---|---|
-| Snapshot | Alle zu sichernden Laufwerke bekommen gemeinsam einen VSS-Snapshot (`diskshadow`), mit VSS-Writern für anwendungskonsistente Daten. Der Server läuft währenddessen normal weiter. |
+| Snapshot | **Windows Server:** Alle Laufwerke bekommen gemeinsam einen VSS-Snapshot (`diskshadow`), mit VSS-Writern für anwendungskonsistente Daten. **Windows 10/11:** `diskshadow` gibt es dort nicht, daher je Laufwerk ein VSS-Snapshot über WMI (absturzkonsistent, ohne Writer). Das System läuft währenddessen normal weiter. |
 | Abbild | Aus dem Snapshot entsteht per DISM eine WIM-Datei: ein Abbild pro Laufwerk plus ein Manifest (Server, Datum, Laufwerke, Datenträger-Layout, UEFI/BIOS). |
 | Prüfen | Erst nach erfolgreicher Prüfung wird die Datei umbenannt und erst dann werden ältere Sicherungen nach Anzahl gelöscht. Ein fehlgeschlagenes Backup löscht nie ein altes. |
 | Zeitplan | Jeder Auftrag ist eine Aufgabe im Windows-Aufgabenplaner (als `SYSTEM`): täglich, wöchentlich, monatlich, alle X Stunden oder nur manuell. |
@@ -16,7 +16,7 @@ Seite: <https://fmatsch.ist/WinServBackup/>
 
 ## Installation
 
-Voraussetzung: Windows Server 2016 oder neuer mit Desktopdarstellung (für die Oberfläche), PowerShell 5.1 (ist enthalten). Auf Server Core lässt sich alles über die PowerShell-Befehle steuern (siehe unten).
+Voraussetzung: Windows Server 2016 oder neuer (mit Desktopdarstellung für die Oberfläche) oder Windows 10 (ab 1607) / Windows 11; PowerShell 5.1 ist jeweils enthalten. Auf Server Core lässt sich alles über die PowerShell-Befehle steuern (siehe unten).
 
 - **`WinServBackup-Setup.exe`** (Release): installiert nach `C:\Program Files\WinServBackup`, legt die Startmenü-Verknüpfung an. Stille Installation: `WinServBackup-Setup.exe /silent` (optional `/desktop`).
 - **`WinServBackup.zip`**: entpacken und `WinServBackup.exe` starten. Die EXE ist ein kleiner Starter, der die Oberfläche mit Administratorrechten und ohne Konsolenfenster öffnet.
@@ -60,6 +60,17 @@ Get-WsbHistory            # Verlauf
 ```
 
 Wiederherstellung per Befehl (z. B. in WinPE): `Restore-WsbBackup -BackupFile D:\srv1_..._20261103-020000.wim -DiskMap @{ 0 = 1 }` (Quell-Datenträger 0 → Ziel-Datenträger 1).
+
+## Windows 10 und 11
+
+Läuft dort genauso (Oberfläche, Zeitplan, Boot-Medium, Restore). Unterschiede:
+
+- **Snapshot:** absturzkonsistent statt anwendungskonsistent (siehe oben). Für Arbeitsplätze ist das üblich und unkritisch; Datenbanken auf Clients sind selten.
+- **BitLocker / Geräteverschlüsselung:** Gesichert wird der entsperrte Inhalt. Die Sicherung ist daher **unverschlüsselt**, also sicher ablegen. Nach dem Restore ist das Laufwerk unverschlüsselt; Windows 11 aktiviert die Geräteverschlüsselung bei passender Hardware später selbst wieder, sonst manuell einschalten.
+- **Wiederherstellungspartition (WinRE):** Wird nicht nachgebaut. Nach dem Restore im laufenden System `reagentc /enable` ausführen.
+- **OneDrive-Platzhalter** („Dateien bei Bedarf“) werden als Platzhalter gesichert, nicht heruntergeladen.
+- **ARM64-Geräte:** Sicherung und Restore sind auf Windows 11 ARM64 getestet. Das Boot-Medium wird dafür mit `New-RecoveryMedia.ps1 -Architecture arm64` und dem ARM64-WinPE-Add-on gebaut (Standard ist die Architektur des Rechners, auf dem gebaut wird).
+- **Tests:** Die automatischen Tests laufen auf Windows Server und auf einem echten Windows-11-ARM64-System. Windows 10 und Windows 11 x64 sind nicht gesondert getestet; der Code ist dort derselbe wie auf ARM64.
 
 ## Grenzen (v0.1)
 
