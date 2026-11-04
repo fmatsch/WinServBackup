@@ -702,50 +702,44 @@ function Dismount-WsbHive {
 
 function Set-WsbMountedDevices {
     # Schreibt die Laufwerksbuchstaben in die (offline eingehaengte) SYSTEM-Registry der wiederhergestellten Installation.
-    param([string]$WindowsRoot, [object[]]$Entries)
+    param([string]$WindowsRoot, [object[]]$Entries = @(), [switch]$EnableBootDrivers)
     $hive = Join-Path $WindowsRoot 'Windows\System32\config\SYSTEM'
     if (-not (Test-Path -LiteralPath $hive)) { throw "Registry-Hive nicht gefunden: $hive" }
     & reg.exe load HKLM\WSB_TARGET $hive | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Die Registry der wiederhergestellten Installation ließ sich nicht laden.' }
+    $changed = @()
     try {
-        $key = Get-Item -LiteralPath 'HKLM:\WSB_TARGET\MountedDevices'
-        foreach ($n in $key.GetValueNames()) { Remove-ItemProperty -LiteralPath $key.PSPath -Name $n -ErrorAction SilentlyContinue }
-        foreach ($e in $Entries) {
-            New-ItemProperty -LiteralPath 'HKLM:\WSB_TARGET\MountedDevices' -Name ('\DosDevices\' + $e.Letter + ':') -PropertyType Binary -Value ([byte[]]$e.Bytes) -Force | Out-Null
+        if ($Entries.Count -gt 0) {
+            $key = Get-Item -LiteralPath 'HKLM:\WSB_TARGET\MountedDevices'
+            foreach ($n in $key.GetValueNames()) { Remove-ItemProperty -LiteralPath $key.PSPath -Name $n -ErrorAction SilentlyContinue }
+            foreach ($e in $Entries) {
+                New-ItemProperty -LiteralPath 'HKLM:\WSB_TARGET\MountedDevices' -Name ('\DosDevices\' + $e.Letter + ':') -PropertyType Binary -Value ([byte[]]$e.Bytes) -Force | Out-Null
+            }
         }
+        if ($EnableBootDrivers) { $changed = @(Set-WsbBootDriverStart) }
     } finally {
         $key = $null
         Dismount-WsbHive 'HKLM\WSB_TARGET'
     }
+    @($changed)
 }
 
-function Enable-WsbBootDrivers {
-    # Hardwareunabhaengiger Start: aktiviert in der wiederhergestellten Installation (offline) alle mitgelieferten
-    # Speicher-Treiber als Boot-Treiber. Windows laedt sonst nur die Treiber der alten Hardware beim Start und
-    # zeigt auf neuer Hardware INACCESSIBLE_BOOT_DEVICE. Liefert die Namen der umgestellten Dienste.
-    param([Parameter(Mandatory)][string]$WindowsRoot)
+function Set-WsbBootDriverStart {
+    # Arbeitet auf dem bereits eingehaengten Hive HKLM:\WSB_TARGET. Liefert die umgestellten Dienste.
     $services = 'atapi', 'intelide', 'pciide', 'amdide', 'aliide', 'cmdide', 'viaide', 'msahci', 'storahci', 'stornvme', 'storvsc', 'vmbus',
         'LSI_SAS', 'LSI_SAS2i', 'LSI_SAS3i', 'LSI_SCSI', 'LSI_FC', 'megasas', 'megasas2i', 'megasr', 'SymMC', 'symc8xx', 'sym_hi', 'sym_u3',
         'aic78xx', 'arcsas', 'adp94xx', 'adpahci', 'adpu320', 'hpsa', 'hpcisss', 'ql2300', 'ql40xx', 'elxstor', 'percsas', 'pvscsi', 'vhdmp'
-    $hive = Join-Path $WindowsRoot 'Windows\System32\config\SYSTEM'
-    if (-not (Test-Path -LiteralPath $hive)) { throw "Registry-Hive nicht gefunden: $hive" }
-    & reg.exe load HKLM\WSB_TARGET $hive | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw 'Die Registry der wiederhergestellten Installation ließ sich nicht laden.' }
     $changed = New-Object System.Collections.Generic.List[string]
-    try {
-        foreach ($cs in @(Get-ChildItem 'HKLM:\WSB_TARGET' | Where-Object { $_.PSChildName -match '^ControlSet\d+$' })) {
-            foreach ($svc in $services) {
-                $k = "HKLM:\WSB_TARGET\$($cs.PSChildName)\Services\$svc"
-                if (-not (Test-Path -LiteralPath $k)) { continue }
-                $cur = (Get-ItemProperty -LiteralPath $k -Name Start -ErrorAction SilentlyContinue).Start
-                if ($null -ne $cur -and $cur -ne 0) {
-                    Set-ItemProperty -LiteralPath $k -Name Start -Value 0 -Type DWord
-                    if (-not $changed.Contains($svc)) { $changed.Add($svc) }
-                }
+    foreach ($cs in @(Get-ChildItem 'HKLM:\WSB_TARGET' | Where-Object { $_.PSChildName -match '^ControlSet\d+$' })) {
+        foreach ($svc in $services) {
+            $k = "HKLM:\WSB_TARGET\$($cs.PSChildName)\Services\$svc"
+            if (-not (Test-Path -LiteralPath $k)) { continue }
+            $cur = (Get-ItemProperty -LiteralPath $k -Name Start -ErrorAction SilentlyContinue).Start
+            if ($null -ne $cur -and $cur -ne 0) {
+                Set-ItemProperty -LiteralPath $k -Name Start -Value 0 -Type DWord
+                if (-not $changed.Contains($svc)) { $changed.Add($svc) }
             }
         }
-    } finally {
-        Dismount-WsbHive 'HKLM\WSB_TARGET'
     }
     Write-WsbLog ('Boot-Treiber aktiviert: ' + $(if ($changed.Count) { $changed -join ', ' } else { '(keine Änderung nötig)' }))
     @($changed)
@@ -880,7 +874,8 @@ function Restore-WsbBackup {
             }
         }
 
-        Step 94 'Übernehme Laufwerksbuchstaben ...'
+        Step 94 'Übernehme Laufwerksbuchstaben und aktiviere Speichertreiber ...'
+        $enabled = @()
         try {
             $entries = @()
             foreach ($v in $order) {
@@ -888,14 +883,8 @@ function Restore-WsbBackup {
                 $td = [int]$DiskMap[[int]$v.diskNumber]
                 $entries += [pscustomobject]@{ Letter = $v.letter; Bytes = (Get-WsbMountedDeviceBytes -DiskNumber $td -TempLetter $t) }
             }
-            Set-WsbMountedDevices -WindowsRoot "${w}:\" -Entries $entries
-        } catch { Write-WsbLog "Laufwerksbuchstaben konnten nicht übernommen werden (Windows vergibt sie neu): $($_.Exception.Message)" 'WARN' }
-
-        $enabled = @()
-        if ($HardwareIndependent) {
-            Step 95 'Aktiviere Speichertreiber für abweichende Hardware ...'
-            try { $enabled = @(Enable-WsbBootDrivers -WindowsRoot "${w}:\") } catch { Write-WsbLog "Speichertreiber konnten nicht aktiviert werden: $($_.Exception.Message)" 'WARN' }
-        }
+            $enabled = @(Set-WsbMountedDevices -WindowsRoot "${w}:\" -Entries $entries -EnableBootDrivers:$HardwareIndependent)
+        } catch { Write-WsbLog "Laufwerksbuchstaben/Treiber konnten nicht übernommen werden (Windows vergibt neu): $($_.Exception.Message)" 'WARN' }
 
         $drvPaths = @($DriverPath, (Join-Path $PSScriptRoot 'Drivers')) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
         foreach ($dp in $drvPaths) {

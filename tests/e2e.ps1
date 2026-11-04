@@ -162,6 +162,7 @@ try {
     Assert ($null -ne $part) 'Datentraeger ist GPT mit EFI-Systempartition'
     # MountedDevices im wiederhergestellten System pruefen
     $osLetter = $res2.Letters["${srcDisk}:V"]
+    Start-Sleep -Seconds 2
     $ld = & reg.exe load HKLM\WSB_CHECK "${osLetter}:\Windows\System32\config\SYSTEM" 2>&1 | Out-String
     Assert ($LASTEXITCODE -eq 0) "Hive des wiederhergestellten Systems ladbar $ld"
     try {
