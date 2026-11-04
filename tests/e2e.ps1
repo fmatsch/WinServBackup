@@ -166,7 +166,13 @@ try {
     try {
         $en = @($res2.DriversEnabled)
         Assert ($en.Count -gt 0) "Speichertreiber wurden umgestellt ($($en -join ', '))"
-        $notBoot = @($en | Where-Object { (Get-ItemProperty "HKLM:\WSB_CHECK\ControlSet001\Services\$_").Start -ne 0 })
+        $notBoot = @()
+        foreach ($cs in Get-ChildItem 'HKLM:\WSB_CHECK' | Where-Object { $_.PSChildName -match '^ControlSet\d+$' }) {
+            foreach ($svc in $en) {
+                $k = "HKLM:\WSB_CHECK\$($cs.PSChildName)\Services\$svc"
+                if ((Test-Path $k) -and (Get-ItemProperty $k).Start -ne 0) { $notBoot += "$($cs.PSChildName)\$svc" }
+            }
+        }
         Assert ($notBoot.Count -eq 0) 'alle umgestellten Treiber stehen im Hive auf Start=0'
         $v = (Get-ItemProperty 'HKLM:\WSB_CHECK\MountedDevices' -ErrorAction Stop).'\DosDevices\V:'
         Assert ($v -and $v.Length -eq 24 -and [Text.Encoding]::ASCII.GetString($v, 0, 8) -eq 'DMIO:ID:') 'MountedDevices: V: zeigt auf die neue GPT-Partition'
