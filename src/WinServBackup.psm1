@@ -3,7 +3,7 @@
 # Auftraege, VSS-Snapshot, Sicherung in EINE WIM-Datei, Aufbewahrung, Zeitplan, Wiederherstellung.
 # Laeuft unter Windows Server 2016+ (PowerShell 5.1) und in WinPE.
 
-$script:ToolVersion = '0.1.0'
+$script:ToolVersion = '0.3.0'
 $script:DataRoot = if ($env:WSB_DATA) { $env:WSB_DATA } else { Join-Path $(if ($env:ProgramData) { $env:ProgramData } else { "$env:SystemDrive\ProgramData" }) 'WinServBackup' }
 $script:JobDir   = Join-Path $script:DataRoot 'jobs'
 $script:LogDir   = Join-Path $script:DataRoot 'logs'
