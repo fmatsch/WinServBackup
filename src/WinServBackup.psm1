@@ -693,7 +693,7 @@ function Dismount-WsbHive {
     $o = ''
     foreach ($i in 1..10) {
         [gc]::Collect(); [gc]::WaitForPendingFinalizers()
-        $o = & reg.exe unload $Name 2>&1 | Out-String
+        $o = & cmd.exe /c "reg.exe unload $Name 2>&1" | Out-String   # cmd, damit stderr keine PowerShell-Fehler ausloest
         if ($LASTEXITCODE -eq 0) { return }
         Start-Sleep -Milliseconds 500
     }
