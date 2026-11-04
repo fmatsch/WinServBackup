@@ -108,7 +108,7 @@
       <h1>WinServBackup</h1>
       <p>Komplett-Backups für Windows Server ab 2016: geplant, wiederkehrend und in einer einzigen Datei. Zum Zurückspielen startet man von einem Boot-Medium, das den Assistenten gleich mitbringt.</p>
       <div class="actions">
-        <a class="btn primary" id="dl" href="https://github.com/fmatsch/WinServBackup/releases/latest">⬇ Herunterladen</a>
+        <a class="btn primary" id="dl" href="https://github.com/fmatsch/WinServBackup/releases/latest">⬇ Setup herunterladen</a>
         <a class="btn" href="https://github.com/fmatsch/WinServBackup">Quellcode auf GitHub</a>
       </div>
       <div class="dl-meta" id="dl-meta">Windows Server 2016 und neuer · PowerShell 5.1 · kostenlos, MIT-Lizenz</div>
@@ -131,15 +131,15 @@
     <div class="card"><h3>Sicher aufräumen</h3><p>Ältere Sicherungen werden erst gelöscht, wenn die neue fertig und geprüft ist. Eine abgebrochene Sicherung hinterlässt keine halbe Datei.</p></div>
     <div class="card"><h3>Zeitplan im Windows-Aufgabenplaner</h3><p>Täglich, wöchentlich, monatlich, alle paar Stunden oder manuell. Verpasste Läufe werden nachgeholt. Optional E-Mail bei Fehlern.</p></div>
     <div class="card"><h3>Boot-Medium mit Assistent</h3><p>WinPE mit einem Wiederherstellungs-Assistenten in vier Schritten. Findet Backups auf allen Laufwerken, verbindet Netzwerkfreigaben und warnt vor dem Löschen deutlich.</p></div>
+    <div class="card"><h3>Hardwareunabhängig zurückspielen</h3><p>Auf neuer Hardware startet der Server wieder: Die Speichertreiber (AHCI, NVMe, SAS/RAID, Hyper-V) werden vor dem ersten Start aktiviert, eigene Treiber lassen sich einspielen, UEFI und BIOS wählt der Assistent passend zum Ziel.</p></div>
     <div class="card"><h3>UEFI und BIOS</h3><p>Partitionen, EFI-Systempartition bzw. Reserved-Partition, BCD und Laufwerksbuchstaben entstehen passend zum Zielserver. Zusätzliche Treiber lassen sich einbinden.</p></div>
     <div class="card"><h3>Netzwerkziele</h3><p>SMB-Freigaben mit Anmeldung; das Kennwort wird mit dem Server verschlüsselt gespeichert (DPAPI, Maschinenschlüssel).</p></div>
     <div class="card"><h3>Offen und prüfbar</h3><p>Reines PowerShell und XAML, MIT-lizenziert. Bei jedem Commit läuft auf Windows ein Test mit echtem VSS-Backup und Restore auf einen leeren Datenträger.</p></div>
   </div>
 
   <h2>Installation</h2>
-  <pre><code># als Administrator im entpackten Ordner
-powershell -ExecutionPolicy Bypass -File .\Install.ps1</code></pre>
-  <p style="color:var(--muted)">Danach im Startmenü <b>WinServBackup</b> öffnen. Für das Boot-Medium einmalig das kostenlose <a href="https://learn.microsoft.com/windows-hardware/get-started/adk-install">Windows ADK mit WinPE-Add-on</a> installieren.</p>
+  <p style="color:var(--muted);margin-top:0"><b>WinServBackup-Setup.exe</b> ausführen: installiert nach <code>C:\Program Files\WinServBackup</code> und legt die Startmenü-Verknüpfung an. Danach startet <b>WinServBackup.exe</b> die Oberfläche (mit Administratorrechten). Wer ohne Installer arbeiten will, nimmt das ZIP und startet <code>WinServBackup.exe</code> direkt daraus; <code>Install.ps1</code> ist die Skript-Variante.</p>
+  <p style="color:var(--muted)">Für das Boot-Medium einmalig Für das Boot-Medium einmalig das kostenlose <a href="https://learn.microsoft.com/windows-hardware/get-started/adk-install">Windows ADK mit WinPE-Add-on</a> installieren.</p>
 
   <h2>Gut zu wissen</h2>
   <div class="note">
@@ -149,8 +149,9 @@ powershell -ExecutionPolicy Bypass -File .\Install.ps1</code></pre>
     <li><b>Löscht Daten:</b> Die Wiederherstellung überschreibt die gewählten Zieldatenträger komplett und verlangt dafür eine ausdrückliche Bestätigung.</li>
     <li><b>NTFS:</b> ReFS, Dynamische Datenträger, Storage Spaces und Software-RAID werden nicht abgebildet. Hardware-RAID erscheint als normaler Datenträger und funktioniert.</li>
     <li><b>Vollbackups:</b> Jede Sicherung ist komplett (komprimiert). Es gibt kein inkrementelles Backup und keine Verschlüsselung der Datei.</li>
+    <li><b>Andere Hardware:</b> Speichertreiber werden automatisch aktiviert; Netzwerkkarten bekommen neue Einstellungen (DHCP), und die Windows-Aktivierung kann neu nötig sein. Treiber für exotische RAID-Controller bringst du als Ordner mit.</li>
     <li><b>Zieldatenträger:</b> Kleiner als das Original darf er nicht sein, größer schon (das letzte Laufwerk wächst mit).</li>
-    <li><b>Nicht signiert:</b> Die PowerShell-Skripte sind nicht signiert. Die Installation läuft mit <code>-ExecutionPolicy Bypass</code>; den Quellcode kannst du vorher ansehen.</li>
+    <li><b>Nicht signiert:</b> EXE-Dateien und Skripte sind nicht signiert. Windows SmartScreen zeigt deshalb „Weitere Informationen → Trotzdem ausführen“. Prüfsummen stehen in <code>SHA256SUMS</code> beim Release, der Quellcode ist offen.</li>
   </ul>
 
   <footer>
@@ -165,7 +166,7 @@ powershell -ExecutionPolicy Bypass -File .\Install.ps1</code></pre>
   fetch("https://api.github.com/repos/fmatsch/WinServBackup/releases/latest")
     .then(r => r.ok ? r.json() : Promise.reject())
     .then(rel => {
-      const a = (rel.assets || []).find(x => x.name === "WinServBackup.zip");
+      const a = (rel.assets || []).find(x => x.name === "WinServBackup-Setup.exe");
       if (!a) return;
       const dl = document.getElementById("dl");
       dl.href = a.browser_download_url;

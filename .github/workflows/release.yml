@@ -13,17 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: ZIP bauen
+      - name: EXE und ZIP bauen
         shell: powershell
-        run: |
-          $stage = 'stage\WinServBackup'
-          New-Item -ItemType Directory -Path $stage -Force | Out-Null
-          foreach ($i in 'src', 'recovery', 'assets', 'WinServBackup.ps1', 'Install.ps1', 'Uninstall.ps1', 'LICENSE', 'README.md') { Copy-Item $i $stage -Recurse }
-          Compress-Archive -Path $stage -DestinationPath WinServBackup.zip
-          ((Get-FileHash WinServBackup.zip -Algorithm SHA256).Hash.ToLower() + '  WinServBackup.zip') | Set-Content SHA256SUMS -Encoding ASCII
+        run: ./build/Build-Exe.ps1 -Out dist
 
       - name: Release anlegen
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" WinServBackup.zip SHA256SUMS --title "WinServBackup ${{ github.ref_name }}" --generate-notes
+        run: gh release create "${{ github.ref_name }}" dist/WinServBackup-Setup.exe dist/WinServBackup.zip dist/SHA256SUMS --title "WinServBackup ${{ github.ref_name }}" --generate-notes

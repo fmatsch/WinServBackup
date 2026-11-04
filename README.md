@@ -18,10 +18,11 @@ Seite: <https://fmatsch.ist/WinServBackup/>
 
 Voraussetzung: Windows Server 2016 oder neuer mit Desktopdarstellung (für die Oberfläche), PowerShell 5.1 (ist enthalten). Auf Server Core lässt sich alles über die PowerShell-Befehle steuern (siehe unten).
 
-```powershell
-# als Administrator, im entpackten Ordner
-powershell -ExecutionPolicy Bypass -File .\Install.ps1
-```
+- **`WinServBackup-Setup.exe`** (Release): installiert nach `C:\Program Files\WinServBackup`, legt die Startmenü-Verknüpfung an. Stille Installation: `WinServBackup-Setup.exe /silent` (optional `/desktop`).
+- **`WinServBackup.zip`**: entpacken und `WinServBackup.exe` starten. Die EXE ist ein kleiner Starter, der die Oberfläche mit Administratorrechten und ohne Konsolenfenster öffnet.
+- **Skript-Variante:** `powershell -ExecutionPolicy Bypass -File .\Install.ps1` (als Administrator).
+
+Die EXE-Dateien sind nicht signiert; SmartScreen fragt deshalb einmal nach. Prüfsummen: `SHA256SUMS`. Gebaut werden sie mit `build\Build-Exe.ps1` (C#-Compiler aus Windows, keine Fremdwerkzeuge).
 
 Danach im Startmenü **WinServBackup** öffnen:
 
@@ -36,7 +37,15 @@ Danach im Startmenü **WinServBackup** öffnen:
 3. Backup wählen → Zieldatenträger wählen → mit `WIEDERHERSTELLEN` bestätigen.
 4. Neu starten. Der Server läuft wie zum Zeitpunkt der Sicherung.
 
-Wiederherstellen auf anderer Hardware: Im Assistenten lässt sich ein Treiberordner angeben (RAID, Netzwerk). Beim Erstellen des Boot-Mediums können die Treiber des aktuellen Servers eingebunden werden.
+### Auf anderer Hardware (hardwareunabhängig)
+
+Der Assistent hat dafür die Option **„Auf abweichender Hardware starten“** (standardmäßig an):
+
+- Alle in Windows enthaltenen Speichertreiber (AHCI, NVMe, SAS/RAID-Klassiker, Hyper-V storvsc) werden in der wiederhergestellten Installation vor dem ersten Start als Boot-Treiber aktiviert. Das verhindert `INACCESSIBLE_BOOT_DEVICE` beim Wechsel z. B. von RAID-Controller zu NVMe oder auf eine VM.
+- Zusätzliche Treiber (RAID, Netzwerk) werden aus einem frei gewählten Ordner eingespielt. Wer sie mit auf das Boot-Medium legen will: `New-RecoveryMedia.ps1 -ExtraDriverPath C:\Treiber`. Der Assistent nutzt `X:\WSB\Drivers` dann automatisch.
+- Startmodus (UEFI/BIOS) und Partitionierung richten sich nach dem **Zielsystem**, nicht nach dem Original.
+
+Danach: Netzwerkkarten sind neu und bekommen Standardeinstellungen (DHCP), die Windows-Aktivierung kann neu fällig werden, und Treiber der alten Hardware lassen sich anschließend deinstallieren. Ein echter Start auf abweichender Hardware ist nicht automatisiert getestet; die Registry-Anpassung ist es.
 
 ## Ohne Oberfläche (Server Core, Skripte)
 
@@ -68,7 +77,8 @@ src/WinServBackup.psm1    Kern: Aufträge, VSS, Sicherung, Aufbewahrung, Zeitpla
 src/Invoke-Backup.ps1     Einstieg für Aufgabenplaner und Oberfläche
 src/Gui/                  WPF-Oberfläche (XAML + PowerShell)
 recovery/                 Boot-Medium-Bau (WinPE) und Wiederherstellungs-Assistent
-tests/                    Statische Prüfung und End-to-End-Test
+build/                    Starter-EXE, Setup-EXE und Build-Skript
+tests/                    Statische Prüfung, End-to-End-Test, EXE-Test
 docs/                     GitHub Pages
 ```
 

@@ -151,15 +151,16 @@ $lbl2.Dock = 'Top'
 $pnlMap = New-Object Windows.Forms.Panel
 $pnlMap.Dock = 'Fill'; $pnlMap.AutoScroll = $true
 $opt = New-Object Windows.Forms.Panel
-$opt.Dock = 'Bottom'; $opt.Height = 130
+$opt.Dock = 'Bottom'; $opt.Height = 166
 $lblFw = New-Label 'Startmodus des Zielservers:'; $lblFw.Location = '0,8'
 $cmbFw = New-Object Windows.Forms.ComboBox; $cmbFw.DropDownStyle = 'DropDownList'; $cmbFw.Location = '230,4'; $cmbFw.Width = 260
 [void]$cmbFw.Items.AddRange(@('UEFI', 'BIOS (Legacy)'))
 $chkFill = New-Object Windows.Forms.CheckBox; $chkFill.Text = 'Letztes Laufwerk eines Datenträgers auf die volle Größe erweitern'; $chkFill.Checked = $true; $chkFill.AutoSize = $true; $chkFill.Location = '0,44'
-$lblDrv = New-Label 'Treiberordner (optional, z. B. RAID- oder Netzwerktreiber):'; $lblDrv.Location = '0,78'
-$txtDrv = New-Object Windows.Forms.TextBox; $txtDrv.Location = '0,100'; $txtDrv.Width = 520
-$btnDrv = New-Button '...' 44; $btnDrv.Location = '530,97'; $btnDrv.Height = 28
-$opt.Controls.AddRange(@($lblFw, $cmbFw, $chkFill, $lblDrv, $txtDrv, $btnDrv))
+$chkHw = New-Object Windows.Forms.CheckBox; $chkHw.Text = 'Auf abweichender Hardware starten (Speichertreiber aktivieren, empfohlen)'; $chkHw.Checked = $true; $chkHw.AutoSize = $true; $chkHw.Location = '0,72'
+$lblDrv = New-Label 'Treiberordner (optional, z. B. RAID- oder Netzwerktreiber):'; $lblDrv.Location = '0,104'
+$txtDrv = New-Object Windows.Forms.TextBox; $txtDrv.Location = '0,126'; $txtDrv.Width = 520
+$btnDrv = New-Button '...' 44; $btnDrv.Location = '530,123'; $btnDrv.Height = 28
+$opt.Controls.AddRange(@($lblFw, $cmbFw, $chkFill, $chkHw, $lblDrv, $txtDrv, $btnDrv))
 $p2.Controls.Add($pnlMap); $p2.Controls.Add($opt); $p2.Controls.Add($lbl2)
 $pnlMap.BringToFront()
 
@@ -272,7 +273,7 @@ function Invoke-Restore {
     }
     try {
         Add-Content -Path (Join-Path ([IO.Path]::GetTempPath()) 'wsb-restore.log') -Value "Start $(Get-Date)" -ErrorAction SilentlyContinue
-        $null = Restore-WsbBackup -BackupFile $script:Info.Path -DiskMap $map -Firmware $fw -DriverPath $txtDrv.Text.Trim() -FillLastVolume $chkFill.Checked -KeepLetters $true -OnProgress $cb
+        $null = Restore-WsbBackup -BackupFile $script:Info.Path -DiskMap $map -Firmware $fw -DriverPath $txtDrv.Text.Trim() -FillLastVolume $chkFill.Checked -HardwareIndependent $chkHw.Checked -KeepLetters $true -OnProgress $cb
         $pb.Value = 100
         $lblState.Text = 'Fertig. Entfernen Sie das Boot-Medium und starten Sie den Server neu.'
         $lblState.ForeColor = [Drawing.Color]::FromArgb(22, 163, 74)

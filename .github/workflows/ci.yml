@@ -29,3 +29,14 @@ jobs:
       - name: End-to-End (VSS-Backup, Aufbewahrung, Zeitplan, Restore)
         shell: powershell
         run: ./tests/e2e.ps1
+
+      - name: EXE bauen und testen (Starter, Setup, Installation)
+        shell: powershell
+        run: ./tests/exe.ps1
+
+      - name: EXE-Dateien als Artefakt
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WinServBackup-exe
+          path: dist/WinServBackup-Setup.exe

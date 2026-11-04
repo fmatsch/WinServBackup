@@ -15,7 +15,7 @@ if ($PSVersionTable.PSVersion.Major -lt 5) { throw 'PowerShell 5.1 oder neuer is
 
 Write-Host "Installiere nach $Path ..."
 if (-not (Test-Path -LiteralPath $Path)) { New-Item -ItemType Directory -Path $Path -Force | Out-Null }
-foreach ($item in 'src', 'recovery', 'assets', 'WinServBackup.ps1', 'Uninstall.ps1', 'LICENSE', 'README.md') {
+foreach ($item in 'src', 'recovery', 'assets', 'WinServBackup.ps1', 'WinServBackup.exe', 'Uninstall.ps1', 'LICENSE', 'README.md') {
     $from = Join-Path $PSScriptRoot $item
     if (Test-Path -LiteralPath $from) { Copy-Item -LiteralPath $from -Destination $Path -Recurse -Force }
 }
@@ -25,8 +25,13 @@ $ws = New-Object -ComObject WScript.Shell
 function New-Shortcut {
     param([string]$File)
     $s = $ws.CreateShortcut($File)
-    $s.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $s.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File "{0}"' -f (Join-Path $Path 'WinServBackup.ps1')
+    $exe = Join-Path $Path 'WinServBackup.exe'
+    if (Test-Path -LiteralPath $exe) {
+        $s.TargetPath = $exe
+    } else {
+        $s.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $s.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File "{0}"' -f (Join-Path $Path 'WinServBackup.ps1')
+    }
     $s.WorkingDirectory = $Path
     $ico = Join-Path $Path 'assets\icon.ico'
     if (Test-Path -LiteralPath $ico) { $s.IconLocation = $ico }

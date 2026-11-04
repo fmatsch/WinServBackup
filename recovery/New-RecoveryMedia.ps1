@@ -121,6 +121,10 @@ echo.
         $driverDirs += $drv
     }
     if ($ExtraDriverPath) { $driverDirs += $ExtraDriverPath }
+    if ($ExtraDriverPath -and (Test-Path -LiteralPath $ExtraDriverPath)) {
+        # zusaetzlich fuer das wiederhergestellte System bereithalten (Restore spielt X:\WSB\Drivers automatisch ein)
+        Copy-Item -LiteralPath $ExtraDriverPath -Destination (Join-Path $dest 'Drivers') -Recurse -Force
+    }
     foreach ($d in $driverDirs) {
         Write-Step "Treiber hinzufügen: $d"
         Dism @("/Image:$mount", '/Add-Driver', "/Driver:$d", '/Recurse') -Soft

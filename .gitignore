@@ -3,3 +3,4 @@
 *.vhdx
 .DS_Store
 Thumbs.db
+dist/

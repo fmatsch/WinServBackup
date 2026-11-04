@@ -707,6 +707,39 @@ function Set-WsbMountedDevices {
     }
 }
 
+function Enable-WsbBootDrivers {
+    # Hardwareunabhaengiger Start: aktiviert in der wiederhergestellten Installation (offline) alle mitgelieferten
+    # Speicher-Treiber als Boot-Treiber. Windows laedt sonst nur die Treiber der alten Hardware beim Start und
+    # zeigt auf neuer Hardware INACCESSIBLE_BOOT_DEVICE. Liefert die Namen der umgestellten Dienste.
+    param([Parameter(Mandatory)][string]$WindowsRoot)
+    $services = 'atapi', 'intelide', 'pciide', 'amdide', 'aliide', 'cmdide', 'viaide', 'msahci', 'storahci', 'stornvme', 'storvsc', 'vmbus',
+        'LSI_SAS', 'LSI_SAS2i', 'LSI_SAS3i', 'LSI_SCSI', 'LSI_FC', 'megasas', 'megasas2i', 'megasr', 'SymMC', 'symc8xx', 'sym_hi', 'sym_u3',
+        'aic78xx', 'arcsas', 'adp94xx', 'adpahci', 'adpu320', 'hpsa', 'hpcisss', 'ql2300', 'ql40xx', 'elxstor', 'percsas', 'pvscsi', 'vhdmp'
+    $hive = Join-Path $WindowsRoot 'Windows\System32\config\SYSTEM'
+    if (-not (Test-Path -LiteralPath $hive)) { throw "Registry-Hive nicht gefunden: $hive" }
+    & reg.exe load HKLM\WSB_TARGET $hive | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Die Registry der wiederhergestellten Installation ließ sich nicht laden.' }
+    $changed = New-Object System.Collections.Generic.List[string]
+    try {
+        foreach ($cs in @(Get-ChildItem 'HKLM:\WSB_TARGET' | Where-Object { $_.PSChildName -match '^ControlSet\d+$' })) {
+            foreach ($svc in $services) {
+                $k = "HKLM:\WSB_TARGET\$($cs.PSChildName)\Services\$svc"
+                if (-not (Test-Path -LiteralPath $k)) { continue }
+                $cur = (Get-ItemProperty -LiteralPath $k -Name Start -ErrorAction SilentlyContinue).Start
+                if ($null -ne $cur -and $cur -ne 0) {
+                    Set-ItemProperty -LiteralPath $k -Name Start -Value 0 -Type DWord
+                    if (-not $changed.Contains($svc)) { $changed.Add($svc) }
+                }
+            }
+        }
+    } finally {
+        [gc]::Collect(); [gc]::WaitForPendingFinalizers()
+        & reg.exe unload HKLM\WSB_TARGET | Out-Null
+    }
+    Write-WsbLog ('Boot-Treiber aktiviert: ' + $(if ($changed.Count) { $changed -join ', ' } else { '(keine Änderung nötig)' }))
+    @($changed)
+}
+
 function Get-WsbMountedDeviceBytes {
     param([int]$DiskNumber, [string]$TempLetter)
     $disk = Get-Disk -Number $DiskNumber
@@ -727,6 +760,7 @@ function Restore-WsbBackup {
         [string]$DriverPath,
         [bool]$FillLastVolume = $true,
         [bool]$KeepLetters = $false,
+        [bool]$HardwareIndependent = $true,
         [scriptblock]$OnProgress
     )
     function Step([int]$p, [string]$m) { Write-WsbLog $m; if ($OnProgress) { & $OnProgress $p $m } }
@@ -772,6 +806,7 @@ function Restore-WsbBackup {
     $li = 0
     $assign = @{}   # 'sd:letter' -> temp letter
     $sysPart = $null
+    $enabled = @()
     $lines = @()
     foreach ($p in $plans) {
         $lines += "select disk $($p.Target)", 'online disk noerr', 'attributes disk clear readonly noerr', 'clean', ('convert ' + $p.Style.ToLower())
@@ -845,11 +880,18 @@ function Restore-WsbBackup {
             Set-WsbMountedDevices -WindowsRoot "${w}:\" -Entries $entries
         } catch { Write-WsbLog "Laufwerksbuchstaben konnten nicht übernommen werden (Windows vergibt sie neu): $($_.Exception.Message)" 'WARN' }
 
-        if ($DriverPath -and (Test-Path -LiteralPath $DriverPath)) {
-            Step 96 'Füge Treiber hinzu ...'
+        $enabled = @()
+        if ($HardwareIndependent) {
+            Step 95 'Aktiviere Speichertreiber für abweichende Hardware ...'
+            try { $enabled = @(Enable-WsbBootDrivers -WindowsRoot "${w}:\") } catch { Write-WsbLog "Speichertreiber konnten nicht aktiviert werden: $($_.Exception.Message)" 'WARN' }
+        }
+
+        $drvPaths = @($DriverPath, (Join-Path $PSScriptRoot 'Drivers')) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+        foreach ($dp in $drvPaths) {
+            Step 96 "Füge Treiber hinzu: $dp"
             $scratch = "${w}:\wsb-scratch"
             New-Item -ItemType Directory -Path $scratch -Force | Out-Null
-            $r = Invoke-WsbDism "/Image:${w}:\ /ScratchDir:$scratch /Add-Driver /Driver:`"$DriverPath`" /Recurse"
+            $r = Invoke-WsbDism "/Image:${w}:\ /ScratchDir:$scratch /Add-Driver /Driver:`"$dp`" /Recurse"
             if ($r.ExitCode -ne 0) { Write-WsbLog 'Nicht alle Treiber konnten hinzugefügt werden.' 'WARN' }
             Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
         }
@@ -857,7 +899,7 @@ function Restore-WsbBackup {
         Write-WsbLog 'Die Sicherung enthält kein Systemlaufwerk - es wurden nur Daten wiederhergestellt.' 'WARN'
     }
 
-    $result = [pscustomobject]@{ Letters = $assign; BootLetter = $sysPart }
+    $result = [pscustomobject]@{ Letters = $assign; BootLetter = $sysPart; DriversEnabled = @($enabled) }
     if (-not $KeepLetters) {
         foreach ($t in @($assign.Values) + @($sysPart)) {
             if ($t) { try { $pp = Get-Partition -DriveLetter $t -ErrorAction Stop; Remove-PartitionAccessPath -DiskNumber $pp.DiskNumber -PartitionNumber $pp.PartitionNumber -AccessPath "${t}:\" -ErrorAction Stop } catch { } }
