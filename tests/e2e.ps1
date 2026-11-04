@@ -164,10 +164,10 @@ try {
     $osLetter = $res2.Letters["${srcDisk}:V"]
     & reg.exe load HKLM\WSB_CHECK "${osLetter}:\Windows\System32\config\SYSTEM" | Out-Null
     try {
-        $present = @('storahci', 'stornvme', 'atapi', 'msahci', 'intelide', 'pciide') | Where-Object { Test-Path "HKLM:\WSB_CHECK\ControlSet001\Services\$_" }
-        Assert ($present.Count -gt 0) "Speichertreiber im Test-Hive vorhanden ($($present -join ', '))"
-        $notBoot = @($present | Where-Object { (Get-ItemProperty "HKLM:\WSB_CHECK\ControlSet001\Services\$_").Start -ne 0 })
-        Assert ($notBoot.Count -eq 0) 'alle vorhandenen Speichertreiber sind Boot-Treiber (Start=0)'
+        $en = @($res2.DriversEnabled)
+        Assert ($en.Count -gt 0) "Speichertreiber wurden umgestellt ($($en -join ', '))"
+        $notBoot = @($en | Where-Object { (Get-ItemProperty "HKLM:\WSB_CHECK\ControlSet001\Services\$_").Start -ne 0 })
+        Assert ($notBoot.Count -eq 0) 'alle umgestellten Treiber stehen im Hive auf Start=0'
         $v = (Get-ItemProperty 'HKLM:\WSB_CHECK\MountedDevices' -ErrorAction Stop).'\DosDevices\V:'
         Assert ($v -and $v.Length -eq 24 -and [Text.Encoding]::ASCII.GetString($v, 0, 8) -eq 'DMIO:ID:') 'MountedDevices: V: zeigt auf die neue GPT-Partition'
     } finally { [gc]::Collect(); [gc]::WaitForPendingFinalizers(); & reg.exe unload HKLM\WSB_CHECK | Out-Null }
