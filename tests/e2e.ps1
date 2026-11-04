@@ -137,7 +137,8 @@ try {
     $wr = Start-WsbBackup -Job $wj
     Remove-Item Env:\WSB_FORCE_WMI_VSS -ErrorAction SilentlyContinue
     Assert ($wr.Status -eq 'ok') "WMI-Snapshot-Backup erfolgreich ($($wr.Message))"
-    Assert (-not (Test-Path 'Y:\') -and -not (Test-Path 'Z:\')) 'WMI-Snapshot-Laufwerke wurden entfernt'
+    $left = @(Get-CimInstance Win32_ShadowCopy -ErrorAction SilentlyContinue)
+    Assert ($left.Count -eq 0) "keine Schattenkopien uebrig ($($left.Count))"
     $vhds += ($dstW = New-TestVhd -Name 'dstw' -SizeMB 1000 -Letter $null -Label '')
     $dstWDisk = (Get-DiskImage -ImagePath $dstW | Get-Disk).Number
     $resW = Restore-WsbBackup -BackupFile $wr.File -DiskMap @{ $srcDisk = [int]$dstWDisk } -Firmware UEFI -KeepLetters $true
