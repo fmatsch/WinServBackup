@@ -130,6 +130,27 @@ try {
     Assert ($bad -eq 0) "alle $($srcHash.Count) Dateien identisch wiederhergestellt"
     Assert ((Get-Volume -DriveLetter $tmpLetter).FileSystemLabel -eq 'QUELLE') 'Volume-Bezeichnung uebernommen'
 
+    # ------------------------------------------------------------ Windows 10/11: Snapshot ohne diskshadow (WMI)
+    Section 'Backup ohne diskshadow (WMI-Snapshot wie unter Windows 10/11)'
+    $env:WSB_FORCE_WMI_VSS = '1'
+    $wj = New-WsbJob; $wj.name = 'WMI'; $wj.volumes = @('V:'); $wj.target.path = $target; $wj.keep = 5
+    $wr = Start-WsbBackup -Job $wj
+    Remove-Item Env:\WSB_FORCE_WMI_VSS -ErrorAction SilentlyContinue
+    Assert ($wr.Status -eq 'ok') "WMI-Snapshot-Backup erfolgreich ($($wr.Message))"
+    Assert (-not (Test-Path 'Y:\') -and -not (Test-Path 'Z:\')) 'WMI-Snapshot-Laufwerke wurden entfernt'
+    $vhds += ($dstW = New-TestVhd -Name 'dstw' -SizeMB 1000 -Letter $null -Label '')
+    $dstWDisk = (Get-DiskImage -ImagePath $dstW | Get-Disk).Number
+    $resW = Restore-WsbBackup -BackupFile $wr.File -DiskMap @{ $srcDisk = [int]$dstWDisk } -Firmware UEFI -KeepLetters $true
+    $lw = $resW.Letters["${srcDisk}:V"]
+    $badW = 0
+    foreach ($k in $srcHash.Keys) {
+        $pw = "${lw}:\$k"
+        if (-not (Test-Path -LiteralPath $pw) -or (Get-FileHash -LiteralPath $pw -Algorithm SHA256).Hash -ne $srcHash[$k]) { $badW++ }
+    }
+    Assert ($badW -eq 0) 'WMI-Snapshot-Backup stellt alle Dateien identisch wieder her'
+    Remove-TestVhd $dstW; Remove-Item $dstW -Force
+    $vhds = @($srcVhd)
+
     # ------------------------------------------------------------ Systemlaufwerk simulieren (Bootdateien, bcdboot, MountedDevices)
     Section 'Wiederherstellung mit Systemlaufwerk (simuliert)'
     $env:WSB_SYSTEM_DRIVE = 'V'
@@ -157,7 +178,8 @@ try {
     $res2 = Restore-WsbBackup -BackupFile $sr.File -DiskMap @{ $srcDisk = [int]$dstDisk2 } -Firmware UEFI -KeepLetters $true -HardwareIndependent $true
     Assert ([bool]$res2.BootLetter) "EFI-Partition hat Laufwerk $($res2.BootLetter)"
     Assert (Test-Path "$($res2.BootLetter):\EFI\Microsoft\Boot\BCD") 'BCD-Speicher wurde angelegt'
-    Assert (Test-Path "$($res2.BootLetter):\EFI\Boot\bootx64.efi") 'EFI-Fallback-Starter vorhanden'
+    $fbName = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'bootaa64.efi' } else { 'bootx64.efi' }
+    Assert (Test-Path "$($res2.BootLetter):\EFI\Boot\$fbName") "EFI-Fallback-Starter vorhanden ($fbName)"
     $part = Get-Partition -DiskNumber $dstDisk2 | Where-Object { $_.Type -eq 'System' -or $_.GptType -eq '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}' }
     Assert ($null -ne $part) 'Datentraeger ist GPT mit EFI-Systempartition'
     # MountedDevices im wiederhergestellten System pruefen

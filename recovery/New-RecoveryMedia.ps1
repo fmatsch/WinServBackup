@@ -16,6 +16,7 @@ param(
     [switch]$IncludeDrivers,
     [string]$ExtraDriverPath,
     [string]$InputLocale = 'de-DE',
+    [ValidateSet('amd64', 'arm64')][string]$Architecture = $(if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }),
     [string]$WorkDir = (Join-Path $env:TEMP 'WinServBackup-WinPE'),
     [switch]$NoPause
 )
@@ -42,8 +43,8 @@ try {
     $adk = Join-Path $kits 'Assessment and Deployment Kit'
     $envBat = Join-Path $adk 'Deployment Tools\DandISetEnv.bat'
     $peRoot = Join-Path $adk 'Windows Preinstallation Environment'
-    $ocs = Join-Path $peRoot 'amd64\WinPE_OCs'
-    if (-not (Test-Path -LiteralPath $envBat) -or -not (Test-Path -LiteralPath (Join-Path $peRoot 'amd64\en-us\winpe.wim'))) {
+    $ocs = Join-Path $peRoot '$Architecture\WinPE_OCs'
+    if (-not (Test-Path -LiteralPath $envBat) -or -not (Test-Path -LiteralPath (Join-Path $peRoot '$Architecture\en-us\winpe.wim'))) {
         Write-Host @'
 
 Das Windows ADK mit dem WinPE-Add-on ist nicht installiert.
@@ -80,7 +81,7 @@ Danach dieses Skript erneut starten.
         & dism.exe /Unmount-Image /MountDir:"$WorkDir\mount" /Discard 2>&1 | Out-Null
         Remove-Item -LiteralPath $WorkDir -Recurse -Force
     }
-    Invoke-Adk "copype amd64 `"$WorkDir`""
+    Invoke-Adk "copype $Architecture `"$WorkDir`""
 
     Write-Step 'Abbild einbinden'
     $mount = Join-Path $WorkDir 'mount'

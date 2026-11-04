@@ -11,7 +11,7 @@ $id = [Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     throw 'Bitte als Administrator ausführen.'
 }
-if ($PSVersionTable.PSVersion.Major -lt 5) { throw 'PowerShell 5.1 oder neuer ist erforderlich (Windows Server 2016+).' }
+if ($PSVersionTable.PSVersion.Major -lt 5) { throw 'PowerShell 5.1 oder neuer ist erforderlich (Windows Server 2016+, Windows 10/11).' }
 
 Write-Host "Installiere nach $Path ..."
 if (-not (Test-Path -LiteralPath $Path)) { New-Item -ItemType Directory -Path $Path -Force | Out-Null }
@@ -35,7 +35,7 @@ function New-Shortcut {
     $s.WorkingDirectory = $Path
     $ico = Join-Path $Path 'assets\icon.ico'
     if (Test-Path -LiteralPath $ico) { $s.IconLocation = $ico }
-    $s.Description = 'WinServBackup - Sicherung für Windows Server'
+    $s.Description = 'WinServBackup - Sicherung für Windows Server, 10 und 11'
     $s.Save()
 }
 New-Shortcut (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\WinServBackup.lnk')

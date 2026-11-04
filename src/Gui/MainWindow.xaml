@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="WinServBackup" Width="1060" Height="720" MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen" Background="#F4F5F7" Foreground="#1B1F24"
@@ -22,7 +22,7 @@
                 </Grid.RowDefinitions>
                 <StackPanel Margin="8,0,0,24">
                     <TextBlock Text="WinServBackup" FontSize="20" FontWeight="Bold"/>
-                    <TextBlock Text="Sicherung für Windows Server" Foreground="#6A7280" FontSize="12" Margin="0,2,0,0"/>
+                    <TextBlock Text="Sicherung für Windows Server und Clients" Foreground="#6A7280" FontSize="12" Margin="0,2,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Row="1">
                     <RadioButton x:Name="NavOverview" Style="{StaticResource Nav}" GroupName="nav" Content="Übersicht" IsChecked="True"/>

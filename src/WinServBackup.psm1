@@ -389,7 +389,7 @@ function New-WsbManifest {
         created     = (Get-Date).ToUniversalTime().ToString('o')
         host        = $env:COMPUTERNAME
         job         = $Job.name
-        os          = [pscustomobject]@{ caption = [string]$os.Caption; version = [string]$os.Version; build = [string]$os.BuildNumber }
+        os          = [pscustomobject]@{ type = $(if ([int]$os.ProductType -eq 1) { 'Client' } else { 'Server' }); caption = [string]$os.Caption; version = [string]$os.Version; build = [string]$os.BuildNumber }
         firmware    = $fw
         disks       = $disks
         volumes     = $vols
@@ -398,8 +398,31 @@ function New-WsbManifest {
 
 # ---------------------------------------------------------------- VSS (diskshadow)
 
+$script:WmiSnaps = @{}
+
+function Initialize-WsbDosDevice {
+    if (-not ('WSB.Dos' -as [type])) {
+        Add-Type -Namespace WSB -Name Dos -MemberDefinition '[System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError=true, CharSet=System.Runtime.InteropServices.CharSet.Unicode)] public static extern bool DefineDosDevice(uint dwFlags, string lpDeviceName, string lpTargetPath);'
+    }
+}
+
+function Test-WsbDiskshadow {
+    # diskshadow.exe gibt es nur in Windows Server; Windows 10/11 nutzen den WMI-Weg.
+    (-not $env:WSB_FORCE_WMI_VSS) -and [bool](Get-Command diskshadow.exe -ErrorAction SilentlyContinue)
+}
+
 function Remove-WsbSnapshot {
     param([string[]]$Exposed)
+    if (-not $Exposed) { return }
+    $wmi = @($Exposed | Where-Object { $script:WmiSnaps.ContainsKey($_) })
+    foreach ($l in $wmi) {
+        $e = $script:WmiSnaps[$l]
+        try { Initialize-WsbDosDevice; [void][WSB.Dos]::DefineDosDevice(7, $l, $e.Target) } catch { }
+        try { Get-CimInstance Win32_ShadowCopy -Filter "ID='$($e.Id)'" -ErrorAction Stop | Remove-CimInstance -ErrorAction Stop }
+        catch { Write-WsbLog "Snapshot $($e.Id) ließ sich nicht entfernen: $($_.Exception.Message)" 'WARN' }
+        $script:WmiSnaps.Remove($l)
+    }
+    $Exposed = @($Exposed | Where-Object { $wmi -notcontains $_ })
     if (-not $Exposed) { return }
     $f = Join-Path ([IO.Path]::GetTempPath()) ('wsb-ds-{0}.txt' -f [guid]::NewGuid().ToString('N'))
     [IO.File]::WriteAllText($f, ((@($Exposed) | ForEach-Object { "DELETE SHADOWS EXPOSED $_" }) -join "`r`n") + "`r`n", [Text.Encoding]::ASCII)
@@ -409,10 +432,44 @@ function Remove-WsbSnapshot {
     } finally { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
 }
 
+function New-WsbSnapshotWmi {
+    # Windows 10/11 (ohne diskshadow): je Laufwerk eine Schattenkopie per WMI, als Laufwerksbuchstabe eingebunden.
+    # Diese Kopien sind absturzkonsistent (wie ein Stromausfall), nicht anwendungskonsistent.
+    param([Parameter(Mandatory)][string[]]$Volumes)
+    Initialize-WsbDosDevice
+    $letters = @(Get-WsbFreeLetter -Count $Volumes.Count)
+    $map = [ordered]@{}
+    $made = @()
+    try {
+        for ($i = 0; $i -lt $Volumes.Count; $i++) {
+            $v = $Volumes[$i]
+            $r = Invoke-CimMethod -ClassName Win32_ShadowCopy -MethodName Create -Arguments @{ Volume = "$v\"; Context = 'ClientAccessible' }
+            if ($r.ReturnValue -ne 0) { throw "VSS-Snapshot für $v fehlgeschlagen (WMI-Code $($r.ReturnValue))." }
+            $sc = Get-CimInstance Win32_ShadowCopy -Filter "ID='$($r.ShadowID)'"
+            $target = ([string]$sc.DeviceObject) -replace '^\\\\\?\\GLOBALROOT', ''
+            $letter = "$($letters[$i]):"
+            $script:WmiSnaps[$letter] = @{ Id = $r.ShadowID; Target = $target }
+            $made += $letter
+            if (-not [WSB.Dos]::DefineDosDevice(1, $letter, $target)) { throw "Der Snapshot von $v ließ sich nicht als Laufwerk einbinden (Win32-Fehler $([Runtime.InteropServices.Marshal]::GetLastWin32Error()))." }
+            if (-not (Test-Path -LiteralPath "$letter\")) { throw "Der Snapshot von $v ist unter $letter nicht lesbar." }
+            $map[$v] = $letter
+        }
+    } catch {
+        Remove-WsbSnapshot -Exposed $made
+        throw
+    }
+    Write-WsbLog 'Snapshot über WMI erstellt (absturzkonsistent, ohne VSS-Writer).'
+    $map
+}
+
 function New-WsbSnapshot {
     # Legt fuer alle Volumes ZUSAMMEN einen persistenten Schattenkopie-Satz an und bindet jede Kopie als Laufwerk ein.
     # Rueckgabe: Hashtable  'C:' -> 'Y:'
     param([Parameter(Mandatory)][string[]]$Volumes)
+    if (-not (Test-WsbDiskshadow)) {
+        Write-WsbLog 'diskshadow ist nicht verfügbar (Windows 10/11): verwende den WMI-Snapshot.'
+        return New-WsbSnapshotWmi -Volumes $Volumes
+    }
     $letters = @(Get-WsbFreeLetter -Count $Volumes.Count)
     $map = [ordered]@{}
     for ($i = 0; $i -lt $Volumes.Count; $i++) { $map[$Volumes[$i]] = "$($letters[$i]):" }
@@ -442,7 +499,8 @@ function New-WsbSnapshot {
         Write-WsbLog ("Snapshot ($mode) fehlgeschlagen, Code $code : " + (($o | Out-String).Trim() -replace '\s+', ' ')) 'WARN'
         Remove-WsbSnapshot -Exposed @($map.Values)
     }
-    throw 'Der VSS-Snapshot konnte nicht erstellt werden. Details stehen im Protokoll.'
+    Write-WsbLog 'diskshadow war nicht erfolgreich - versuche den WMI-Snapshot.' 'WARN'
+    New-WsbSnapshotWmi -Volumes $Volumes
 }
 
 # ---------------------------------------------------------------- Ziel
@@ -867,7 +925,8 @@ function Restore-WsbBackup {
         if ($LASTEXITCODE -ne 0) { throw "bcdboot ist mit Code $LASTEXITCODE fehlgeschlagen." }
         if ($Firmware -eq 'UEFI') {
             $src = "${sysPart}:\EFI\Microsoft\Boot\bootmgfw.efi"
-            $dst = "${sysPart}:\EFI\Boot\bootx64.efi"
+            $fbName = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'bootaa64.efi' } else { 'bootx64.efi' }
+            $dst = "${sysPart}:\EFI\Boot\$fbName"
             if ((Test-Path -LiteralPath $src) -and -not (Test-Path -LiteralPath $dst)) {
                 New-Item -ItemType Directory -Path (Split-Path $dst) -Force | Out-Null
                 Copy-Item -LiteralPath $src -Destination $dst -Force
